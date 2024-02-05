@@ -1,0 +1,24 @@
+""" A random string with alphabet a, b, and~c is generated randomly. We may regard the process as a monkey typing on a keyboard randomly. 
+It stops whenever the last few letters match the predefined patern. 
+
+We compare the average time until we see the pattern 'aabb' and 'abab', by running the experiment 10000 times for each pattern.
+"""
+
+from random import choice
+
+A = ['a','b','c']              # alphabet = {a,b,c}
+
+def monkey(alphabet,pattern):
+    random_string = ""         # initialize to empty string
+    while True:
+        random_string += choice(alphabet) # randomly draw a character
+        if random_string[-len(pattern):] == pattern:  
+            break              # break if we see the pattern at the end 
+   return len(random_string)   # return the length of the random string
+
+n = 10000   # run the experiment n times
+waiting_time1 = sum([monkey(A,'abab') for _ in range(n)])/n
+waiting_time2 = sum([monkey(A,'aabb') for _ in range(n)])/n
+
+print(f"Average waiting time for pattern abab = {waiting_time1}")
+print(f"Average waiting time for pattern aabb = {waiting_time2}")
