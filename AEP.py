@@ -1,10 +1,10 @@
-# -*- coding: utf-8 -*-
 """
-Created on Mon Jan  2 12:58:20 2023
+Generate a random string with each letter generated independently according to 
+a given distribution, and calculate the log of the probability that this particular
+string is drawn.
+"""
 
-@author: User
-"""
-# Probability of a random string
+
 from random import choices
 from numpy import log2
 
