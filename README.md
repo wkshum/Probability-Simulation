@@ -1,1 +1,1 @@
-# Probability-Simulation-Python
+# Probability and Information Theory
