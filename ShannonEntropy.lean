@@ -231,8 +231,16 @@ theorem entropy_ge_zero (f : DiscreteDist α) : (H f) ≥ 0 := by
 
 
 
--- If random variable X takes at most n values, then  H(X) ≤ log n
+-- If random variable X takes at most K values, then  H(X) ≤ log K
 
+/- Sketch of proof:
+  H(X) - log(K)
+= ∑_{i} P(i) log P(i) - ∑_{i} p(i)*log(K)
+= ∑_{i} P(i) log (1/ (K*log P(i)))
+≤ ∑_{i} P(i) [1/(K*log P(i)) - 1]
+= 0
+
+-/
 theorem entropy_le_log_suppsize  (hpos : (Fintype.card α)> 0) (f : DiscreteDist α) :
           (H f) ≤ Real.log (Fintype.card α) := by
 
