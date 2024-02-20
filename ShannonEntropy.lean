@@ -57,7 +57,7 @@ variable {α : Type*} [DecidableEq α] [Fintype α]
 structure DiscreteDist (α : Type*) [Fintype α] where
   dist : α → ℝ
   NonNeg : ∀ i : α ,  dist i ≥ 0
-  sum_eq_one : (∑' (i : α) , dist i) = 1
+  sum_eq_one : ∑ i : α , dist i = 1
 
 
 /-
@@ -80,19 +80,9 @@ Example of probability distribution
 -/
 
 
--- Example: prob. distribution over a prouct of two finite sets
-def dist12 : DiscreteDist (Fin 3 × Fin 4) where
-  dist := λ (i : Fin 3× Fin 4) => 1/12
-  NonNeg := by
-    intro i
-    simp
-    norm_num
-  sum_eq_one := by
-    norm_num
-
 
 /-
-  Example: Uniform distribution on {1,2,...,n}
+  Example: Uniform distribution on {0,1,2,...,n-1}
 -/
 def uniform_dist (n:ℕ) (hpos: n> 0) : DiscreteDist (Fin n) where
   dist := λ (i : Fin n) => 1/(n:ℝ)
@@ -132,7 +122,6 @@ theorem prob_le_one (f : DiscreteDist α ) :
   calc
     f.dist j = ∑ i , g j i := by simp [Finset.sum_mul]
         _ ≤  ∑ i , f.dist i  :=  Finset.sum_le_sum fun i _ ↦ h₀ i
-        _ =  ∑' i , f.dist i :=  (tsum_fintype f.dist).symm
         _ = 1 := f.sum_eq_one
 
 
@@ -163,6 +152,9 @@ lemma split_summation_domain (F : α → ℝ )  (p : α → Prop )  [DecidablePr
   rw [Finset.sum_compl_add_sum (Set.toFinset {x | p x}) F]
 
 
+
+-- We can ignore some zero terms when computing a finite sum
+
 lemma sum_eq_sum_nz_term (F G : α → ℝ ) (h : ∀ x: α , G x =0 → F x = 0):
         ∑ i:α , F i  = (∑ i: {i: α // G i ≠ 0 } , F i) := by
   have h₀ : ∑ i: {i: α // G i = 0 } , F i = 0 := by
@@ -180,7 +172,7 @@ lemma sum_eq_sum_nz_term (F G : α → ℝ ) (h : ∀ x: α , G x =0 → F x = 0
   ring
 
 
--- When computing a sum in general, it suffices to sum over the nonzero terms
+-- It suffices to sum over the nonzero terms when computing a finite sum
 
 lemma sum_eq_sum_over_support (F: α → ℝ ):
         ∑ i:α , F i  = (∑ i: {i: α // F i ≠ 0 } , F i) := by
@@ -254,7 +246,6 @@ theorem entropy_le_log_suppsize  (hpos : (Fintype.card α)> 0) (f : DiscreteDist
 
   have h₀ :  ∑ i : {i:α // f.dist i ≠ 0}  , (f.dist i) = 1 := by
     rw [← sum_eq_sum_over_support f.dist]
-    rw [← tsum_fintype f.dist]
     rw [f.sum_eq_one]
 
   have h₁ : Real.log K = ∑ i : {i // f.dist i ≠ 0}, f.dist i * Real.log K := by
@@ -332,7 +323,6 @@ theorem entropy_le_log_suppsize  (hpos : (Fintype.card α)> 0) (f : DiscreteDist
       exact Nat.cast_ne_zero.mpr (Nat.pos_iff_ne_zero.mp hpos)
 
     rw [Finset.sum_sub_distrib]
-    rw [(tsum_fintype f.dist).symm]
     rw [f.sum_eq_one, h₉]
     ring
 
@@ -443,3 +433,18 @@ lemma split_summation_domain' (F : α → ℝ)  (p : α → Prop )  [DecidablePr
   rw [h₁, h₂]
 
 -/
+
+
+/-
+-- Example: prob. distribution over a prouct of two finite sets
+def dist12 : DiscreteDist (Fin 3 × Fin 4) where
+  dist := λ (i : Fin 3× Fin 4) => 1/12
+  NonNeg := by
+    intro i
+    simp
+    norm_num
+  sum_eq_one := by
+    norm_num
+    sorry
+
+  -/
