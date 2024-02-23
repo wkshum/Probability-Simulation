@@ -5,84 +5,26 @@ import Mathlib.Data.Fintype.BigOperators
 import Mathlib.Analysis.SpecialFunctions.Log.Basic
 import Mathlib.Analysis.SpecialFunctions.Log.NegMulLog
 
-/-
-
-Objectives:
-
-* We define Shannon entropy for finite and discrete probability distribution. Expectations are finite sums
-and hence measure theory is avoided. (A full-blown formulation of entropy was done in the project of
-polynomial Friemann-Ruzsa conjecture.)
-
-* A discrete distribution is defined as a nonnegative real-valued function on a finite sample space, so that
-the sum of all components is equal to 1. If the probabilities are p_i, for i ranging over the sample space,
-the Shannon entropy is defined as the sum of - p_i log p_i. When p_i =0, the value of p_i log p_i is
-defined as 0.
-
-The function -x log x is implemented by negMulLog, which has just been introduced in Mathlib.
-
-* The main result is the proof of the inequality that entropy is bounded between 0 and log(K), where K is the
-cardinality of the sample space. This is split into two theorems:
-
-theorem entropy_ge_zero
-
-theorem entropy_le_log_suppsize
-
-
-
-Natural log is employed throughout. The unit of entropy is nat.
-
--/
-
+import MyProject.DiscreteProbability
 
 noncomputable section
 
 
+open Real BigOperators Fintype Finset
+open DiscreteProbability
+
 namespace entropy
 
-
-open Real BigOperators
-
 /-
-  Assume all probability distibutions are defined over a finite alphabet
+  All probability distibutions in this file are defined over a finite alphabet
 -/
-variable {α : Type*} [DecidableEq α] [Fintype α]
-variable {β  : Type*} [DecidableEq β] [Fintype β]
-
-
-/-
- Data structure for discrete probability disribution
-
- a probabilty disribution function P is the function called dist
-    bundled with two additional conditions.
-
-  We make a term with type Discreteist α acting like a function by making it FunLike.
-
--/
-
-@[ext]
-structure DiscreteDist (α : Type*) [Fintype α] where
-  dist : α → ℝ
-  NonNeg : ∀ i : α ,  dist i ≥ 0
-  sum_eq_one : ∑ i : α , dist i = 1
-
-instance instFunLike : FunLike (DiscreteDist α) α ℝ  where
-  coe p a := (p.dist a)
-  coe_injective' p q h := by
-    ext a
-    have h1 : (fun p a ↦ p.dist a) p = p.dist := by rfl
-    have h2 : (fun p a ↦ p.dist a) q = q.dist := by rfl
-    rw [h1, h2] at h
-    exact congrFun h a
-
-
-theorem prob_sum_to_one (P: DiscreteDist α ): ∑ x:α , P x = 1 := P.sum_eq_one
-
-
+variable {α : Type*} [DecidableEq α] [Fintype α] [Nonempty α ]
+variable {β : Type*} [DecidableEq β] [Fintype β] [Nonempty β]
 
 
 
 /-
- Shannon entropy and mutual information  for finite distribution
+ Shannon entropy for probability distribution over a finite sample space
 -/
 
 -- Shannon entropy is a function of a discrete pobability distribution
@@ -95,146 +37,22 @@ def H (f : DiscreteDist α) : ℝ :=
 
 
 -- Binary entropy function
-def h_b (p:ℝ) : ℝ := negMulLog p + negMulLog (1-p)
+def h_binary (p:ℝ) : ℝ := negMulLog p + negMulLog (1-p)
 
+notation:max "H(" P ")" => H P
 
+-- Another form of the definition
 
-
-----------------------------------------
-
-/-
-Example of probability distribution
--/
-
-
-
-/-
-  Example: Uniform distribution on {0,1,2,...,n-1}
--/
-def uniform_dist (n:ℕ) (hpos: n> 0) : DiscreteDist (Fin n) where
-  dist := λ (i : Fin n) => 1/(n:ℝ)
-  NonNeg := by
-    simp
-  sum_eq_one := by
-    have h2: n ≠ 0 := by exact Nat.pos_iff_ne_zero.mp hpos
-    norm_num
-    refine mul_inv_cancel ?_
-    exact Nat.cast_ne_zero.mpr h2
-
-
-/-
- Example: Uniform distribution on a finite set
--/
-def uniform_dist'  (hnz : Fintype.card α ≠ 0) : DiscreteDist α where
-  dist := λ (i : α) => 1/(Fintype.card α)
-  NonNeg := by simp
-  sum_eq_one := by
-    simp
-    refine mul_inv_cancel ?_
-    exact Nat.cast_ne_zero.mpr hnz
-
-
-
-/-
-Discrete probability distribution has values less than or equal to 1
--/
-theorem prob_le_one (f : DiscreteDist α ) :   ∀ j : α , f j ≤ 1 := by
-  intro j
-  let g (j i : α ) : ℝ  := if i=j then (f j) else 0
-  have h₀ : ∀ i : α  , g j i ≤ f i := by
+theorem entropy_def (f: DiscreteDist α ) : H f = - ∑ x, (f x) * log (f x) := by
+  have H_def : ∀ i:α , negMulLog (f i) = (f i) * log (f i) * (-1) := by
     intro i
-    by_cases h2 : i=j
-    · simp [h2]
-    · simp [h2]
-      exact f.NonNeg i
-
-
+    dsimp [negMulLog]
+    ring
   calc
-    f j = ∑ i , g j i := by simp [Finset.sum_mul]
-        _ ≤  ∑ i , f i  :=  Finset.sum_le_sum fun i _ ↦ h₀ i
-        _ = 1 := f.sum_eq_one
-
-
--- Example: uniform distribution over a product of two finite sets
-def dist_mn (m n : ℕ ) (hm: m > 0) (hn: n> 0): DiscreteDist (Fin m × Fin n) where
-  dist := λ (_i : Fin m × Fin n) => (m*n : ℝ )⁻¹
-  NonNeg := by
-    intro i
-    simp
-    have h₁ : (m:ℝ)⁻¹ ≥ 0 := inv_nonneg.mpr (le_of_lt (Nat.cast_pos.mpr hm))
-    have h₂ : (n:ℝ)⁻¹ ≥ 0 := inv_nonneg.mpr (le_of_lt (Nat.cast_pos.mpr hn))
-    exact mul_nonneg h₂ h₁
-  sum_eq_one := by
-    dsimp
-    simp
-    have h₁ : Finset.univ.card = (Fintype.card (Fin m × Fin n)) := by rfl
-    rw [h₁]
-    rw [Fintype.card_prod (Fin m) (Fin n) ]
-    rw [Fintype.card_fin m, Fintype.card_fin n]
-    simp
-    calc
-      (m:ℝ) * (n:ℝ) * ((n:ℝ )⁻¹ * (m:ℝ )⁻¹)
-         = (m:ℝ)* (m:ℝ )⁻¹ * (n:ℝ) * (n:ℝ )⁻¹ := by ring
-       _ = 1 * (n:ℝ) * (n:ℝ )⁻¹ := by rw [mul_inv_cancel (Nat.cast_ne_zero.mpr (Nat.pos_iff_ne_zero.mp hm))]
-       _ = (n:ℝ) * (n:ℝ)⁻¹ := by ring
-       _ =  1 := by rw [mul_inv_cancel (Nat.cast_ne_zero.mpr (Nat.pos_iff_ne_zero.mp hn))]
-
-
-
-----------------------------------------------------------
-
-
-
-
-
-
-/-
-
- Useful lemmas about summation
-
--/
-
--- Split the domain of summation into two disjoint parts
-lemma split_summation_domain (F : α → ℝ )  (p : α → Prop )  [DecidablePred p] :
-   ∑ i:α , F i = (∑ i: {i: α // ¬ p i } , F i) + (∑ i: {i: α // p i } , F i)  := by
-
-  have h_comp : Set.toFinset {x | ¬p x} = (Set.toFinset {x | p x})ᶜ := by
-    ext x
-    rw [Set.mem_toFinset, Finset.mem_compl, Set.mem_toFinset]
-    trivial
-  rw [← Finset.sum_toFinset_eq_subtype (fun i:α => (p i)) _]
-  rw [← Finset.sum_toFinset_eq_subtype (fun i:α => (¬ p i)) _]
-  rw [h_comp]
-  rw [Finset.sum_compl_add_sum (Set.toFinset {x | p x}) F]
-
-
-
--- We can ignore some zero terms when computing a finite sum
-
-lemma sum_eq_sum_nz_term (F G : α → ℝ ) (h : ∀ x: α , G x =0 → F x = 0):
-        ∑ i:α , F i  = (∑ i: {i: α // G i ≠ 0 } , F i) := by
-  have h₀ : ∑ i: {i: α // G i = 0 } , F i = 0 := by
-    rw [← Finset.sum_toFinset_eq_subtype (fun i:α => (G i = 0)) F]
-    refine Finset.sum_eq_zero ?h
-    intro x hx
-    have h': x ∈ {x | G x = 0} := Set.mem_toFinset.mp hx
-    exact h x h'
-  rw [split_summation_domain F (fun i:α => (G i = 0))]
-  conv =>
-    lhs
-    congr
-    rfl
-    rw [h₀]
-  ring
-
-
--- It suffices to sum over the nonzero terms when computing a finite sum
-
-lemma sum_eq_sum_over_support (F: α → ℝ ):
-        ∑ i:α , F i  = (∑ i: {i: α // F i ≠ 0 } , F i) := by
-  refine sum_eq_sum_nz_term F F ?_
-  intro x hx
-  exact hx
+    H f = ∑ i : α , negMulLog (f i) := by dsimp [H]
+     _  = ∑ i : α , (f i) * log (f i)*(-1) := by rw [Fintype.sum_congr _ _  H_def]
+      _ = (∑ i : α , (f i) * log (f i))*(-1) := by rw [sum_mul univ _ _ ]
+      _ = - ∑ x, (f x) * log (f x) := by ring
 
 
 -- In the definition of entropy we can only sum over outcomes that have positive probabilities.
@@ -242,10 +60,9 @@ lemma sum_eq_sum_over_support (F: α → ℝ ):
 theorem entropy_sum_over_support (f: DiscreteDist α) :
       H f = ∑ i : {i : α // f i ≠ 0} , Real.negMulLog (f i) := by
   simp [H]
-  refine sum_eq_sum_nz_term (fun i:α => Real.negMulLog (f i)) (f)  ?_
-
-  -- using the lemma sum_eq_sum_nz_term,
-  -- it suffices to prove that f.dist x = 0 implies negMulLog (f.dist x) = 0
+  refine sum_eq_sum_nz_term (fun i:α => Real.negMulLog (f i)) (f · = 0 )  ?_
+  -- using the lemma sum_eq_sum_nz_term, it remains to prove that
+  --   f.dist x = 0 implies negMulLog (f.dist x) = 0
   intro x hx
   dsimp
   rw [hx]
@@ -254,12 +71,19 @@ theorem entropy_sum_over_support (f: DiscreteDist α) :
 
 
 /-
-The basic inequality in information theory:    log x ≤  x-1 for positive x
+The basic inequality in information theory:    log x ≤ x-1 for positive x
+with equality if and only if x=1
 -/
-example (x:ℝ) (hpos : x > 0) : Real.log x ≤ x - 1 :=
-  Real.log_le_sub_one_of_pos hpos
 
+example (x:ℝ) (hpos : x > 0) : Real.log x ≤ x - 1 := Real.log_le_sub_one_of_pos hpos
 
+-- example (h1: x>0) (h2: x≠ 1) : Real.log x < x-1 := Real.log_lt_sub_one_of_pos h1 h2
+
+theorem eq_one_of_pos_of_log_eq_sub_one (hpos: x>0) : log x = x-1 → x=1 := by
+  intro h
+  by_contra h1
+  have h2 : log x < x-1 := Real.log_lt_sub_one_of_pos hpos h1
+  exact (ne_of_lt h2) h
 
 
 /-
@@ -269,263 +93,219 @@ Lower and upper bound on Shannon entopy
 -- Entropy is nonnegative
 theorem entropy_ge_zero (f : DiscreteDist α) : (H f) ≥ 0 := by
   have h1 :  ∀ i : α , f i ≤ 1 := prob_le_one f  -- The value of f i is probability
-  dsimp [H, Real.negMulLog]
-  simp [Finset.sum_mul]
+  dsimp [H, negMulLog]
+  simp [sum_mul]
   apply Finset.sum_nonpos
   intro i
-  have h2 : f i ≥ 0 := f.NonNeg i
-  simp [Real.mul_log_nonpos (h2) (h1 i)]
+  have : f i ≥ 0 := f.NonNeg i
+  simp [mul_log_nonpos this (h1 i)]
 
 
+
+
+-- If entropy is zero, then there exists an outcome x with probability 1
+theorem eq_entropy_eq_zero (P: DiscreteDist α) :
+     H P = 0 → ∃! x:α , P x = 1 ∧ ∀ y:α , y≠ x → P y = 0 := by sorry
+
+
+
+
+
+/- Gibb's inequaliy ∑_{x} P(x) log (P(x)/Q(x)) ≥ 0
+
+Sketch of proof:
+
+  ∑_{x} P(x) log (Q(x)/P(x))                          (Step 0)
+  ∑_{x: P x ≠ 0} P(x) log (Q(x)/P(x))                 (Step 1)
+≤ ∑_{x: P x ≠ 0} P(x) [Q(x)/P(x) - 1]                 (Step 2)
+≤ ∑_{x} Q(x) - ∑_{x} P(x)                             (Step 3)
+= 0                                                   (Step 4)
+
+-/
+
+theorem Gibbs_inequality {P Q : α→ℝ} (hP: ∀ i, P i ≥ 0) (hQ: ∀ i, Q i ≥ 0)
+  (hSum:  ∑ i, P i = ∑ i, Q i) (h: ∀ i, P i ≠ 0 → Q i ≠ 0) :
+
+   ∑ i, (P i)* log (P i/Q i) ≥ 0 := by
+
+  have : ∀ i , (P i)*log (P i/Q i) = (P i)*log (Q i/P i)*(-1) := by
+    intro i
+    have h₁' : log (Q i/P i)⁻¹ = - log (Q i/P i) := by exact log_inv (Q i/P i)
+    have h₁'':  (P i / Q i) = (Q i/P i)⁻¹ := by field_simp
+    calc
+      (P i)*log (P i/Q i) = (P i)*log (Q i/P i)⁻¹ := by rw [h₁'']
+                        _ = (P i)* (- log (Q i/P i)) := by rw [h₁']
+                        _ =  (P i)*log (Q i/P i)*(-1) := by ring
+
+  rw [sum_congr (fun i=>(P i)*log (P i/Q i)) (fun i=>(P i)*log (Q i/P i)*(-1)) this]
+  have : (∑ i, (P i)*log ((Q i/P i)))*(-1) = ∑ i, ((P i)*log ((Q i/P i))*(-1)) := by
+    exact sum_mul univ _ (-1)
+  rw [← this]
+  simp [neg_nonneg.mpr]
+
+  show  ∑ i, (P i)* log (Q i/P i) ≤ 0          -- step 0
+
+  have : ∑ i, P i * log (Q i/ P i) = ∑ i : {i // P i ≠ 0}, P i * log (Q i / P i) := by
+    refine sum_eq_sum_nz_term (fun i => (P i)*log (Q i/P i)) (fun i => P i = 0) ?_
+    intro i hi
+    dsimp
+    rw [hi]
+    ring
+  rw [this]
+
+  show  ∑ i:{i // P i ≠ 0}, (P i)* log (Q i/P i) ≤ 0          -- step 1
+
+  have h₂ : ∀ i,  P i ≠ 0 → (P i)*log (Q i/P i)  ≤ (P i)*(Q i/P i - 1) := by
+    intro i hi
+    have hi' : P i ≠ 0 := hi
+    have hPi_pos : P i > 0 := by exact Ne.lt_of_le (id (Ne.symm hi')) (hP i)
+    have hQi_pos : Q i > 0 := by exact Ne.lt_of_le (id (Ne.symm (h i hi'))) (hQ i)
+    have : (Q i)/(P i) > 0 := by exact div_pos hQi_pos hPi_pos
+    have basic_inequality : log (Q i/P i)  ≤ (Q i)/(P i) - 1 := by
+      exact Real.log_le_sub_one_of_pos this
+    exact (mul_le_mul_left hPi_pos).mpr basic_inequality
+
+  have h₃ : ∑ i : {i // P i ≠ 0}, (P i)*log (Q i/P i) ≤ ∑ i : {i // P i ≠ 0}, (P i)*(Q i/P i - 1) := by
+    refine Finset.sum_le_sum ?_
+    simp only [Subtype.forall]
+    intro x
+    intro hx   -- hx is the condition P x ≠ 0
+    simp
+    exact h₂ x hx
+
+  -- It suffices to prove the following inequality
+  suffices h_step2 : ∑ i : { i // P i ≠ 0}, (P i)*(Q i/P i - 1) ≤ 0     -- step 2
+    from le_trans h₃ h_step2
+
+  have h₄:  ∑ i : { i // P i ≠ 0}, (P i)*(Q i/P i - 1) ≤ ∑ i, (Q i - P i) := by   -- step 3
+    have h₄' : ∑ i, (P i)* (Q i / P i - 1) = ∑ i : {i // P i ≠ 0} , (P i)*(Q i/P i - 1) := by
+      refine sum_eq_sum_nz_term _ (P · = 0) ?_
+      intro x hx
+      simp at hx
+      rw [hx]
+      norm_num
+    rw [← h₄']
+    refine Finset.sum_le_sum ?_
+    intro i _
+    by_cases h_zero : P i = 0
+    · -- The case P i = 0
+      rw [h_zero]
+      simp
+      exact hQ i
+    · -- The case P i ≠ 0
+      have : P i * (Q i/ P i - 1) = Q i  - P i := by
+        calc
+           P i * (Q i/ P i - 1)
+            =  Q i * (P i/ P i) - P i := by ring
+          _ =  Q i * 1 - P i := by rw [div_self h_zero]
+          _ =  Q i - P i := by ring
+      exact Eq.le this
+
+  have h₅  : ∑ i, (Q i - P i ) = 0 := by   -- step 4
+    rw [Finset.sum_sub_distrib]
+    rw [hSum]
+    ring
+
+  rw [h₅] at h₄
+  exact h₄
+
+
+theorem log_sum_inequality (a b : α→ℝ) (ha: ∀ i, a i ≥ 0) (hb: ∀ i, b i ≥ 0)
+  (hA:  ∑ i, a i > 0) (hB: ∑ i, b i>0) (h: ∀ i, a i ≠ 0 → b i ≠ 0) :
+
+     ∑ i, (a i)* log (a i/b i) ≥ (∑ i, a i) * log ((∑ i, a i)/(∑ i, b i)) := by
+
+  sorry
+
+lemma log_div_eq_log_minus_log {a b : α → ℝ} (h : ∀ i:α , a i ≠ 0 → b i ≠ 0) :
+     ∀ i:α , (a i) * log (a i / b i) = (a i)*log (a i) - (a i)* log ( b i) := by
+  intro i
+  by_cases ha : a i = 0
+  · -- assume a i = 0
+    rw [ha]
+    ring
+  · -- assume a i ≠ 0
+    have hb : b i ≠ 0 := h i ha
+    have h' : log (a i / b i) = log (a i) - log (b i) := by exact log_div ha hb
+    rw [ congrArg (HMul.hMul (a i)) h']
+    ring
 
 
 
 -- If random variable X takes at most K values, then  H(X) ≤ log K
 
-/- Sketch of proof:
-  H(X) - log(K)
-= ∑_{i} P(i) log P(i) - ∑_{i} p(i)*log(K)             (Step 1)
-= ∑_{i} P(i) log (1/ (K*log P(i)))                    (Step 2)
-≤ ∑_{i} P(i) [1/(K*log P(i)) - 1]                     (Step 3)
-= 0                                                   (Step 4)
-
--/
-theorem entropy_le_log_suppsize  (hpos : (Fintype.card α)> 0) (f : DiscreteDist α) :
-          (H f) ≤ Real.log (Fintype.card α) := by
+theorem entropy_le_log_suppsize  (f : DiscreteDist α):  (H f) ≤ Real.log (Fintype.card α) := by
 
   let K := Fintype.card α   -- cardinary of alphabet size = K
-  have hKnez :  (K:ℝ) ≠ 0 := by   -- K as a real number is not equal to 0
-    refine Nat.cast_ne_zero.mpr ?_
-    apply ne_of_gt
-    calc
-        0 < Fintype.card α := by rel [hpos]
-        _ = K := rfl
+  have hKpos : K > 0 := by exact Fintype.card_pos
 
-  have h₀ :  ∑ i : {i:α // f i ≠ 0}  , (f i) = 1 := by
-    rw [← sum_eq_sum_over_support f]
-    rw [prob_sum_to_one f]
+  have h1 :  (K:ℝ)⁻¹ ≠ 0 := by   -- K as a real number is not equal to 0
+    apply inv_ne_zero    -- suffices to prove K ≠ 0
+    apply Nat.cast_ne_zero.mpr
+    exact ne_of_gt hKpos       -- suffices to prove K > 0
 
-  have h₁ : Real.log K = ∑ i : {i // f i ≠ 0}, f i * Real.log K := by
-    have h₂ := by
-      exact Finset.sum_toFinset_eq_subtype (fun i:α => (f i ≠ 0)) (fun i:α => (f i)*(Real.log K))
-    have h₃ := by
-      exact Finset.sum_toFinset_eq_subtype (fun i:α => (f i ≠ 0)) (fun i:α => (f i))
-    rw [← Finset.sum_mul, h₃, h₀] at h₂
-    simp at h₂
-    exact h₂
+  have h2 : ∀ _x : α, (K:ℝ)⁻¹ ≥ 0 := by
+    intro _
+    exact LT.lt.le (inv_pos.mpr (Nat.cast_pos.mpr hKpos))
 
-  -- Step 1
-  apply sub_nonpos.mp  -- It suffices to show   H f - Real.log K ≤ 0
-  rw [entropy_sum_over_support f, h₁]
-  rw [← Finset.sum_sub_distrib]
-
-  -- Step 2
-  have h₄ : ∑ i : { i : α // f i ≠ 0 }, (Real.negMulLog (f i) - f i * Real.log K)
-      = ∑ i : {i // f i ≠ 0} , (f i) * (Real.log ((f i)* K)⁻¹)  := by
-    refine Fintype.sum_congr _ _ ?_
-    simp only [Subtype.forall]
-    intro i hi
-    have h₅ : Real.negMulLog (f i) = -(f i)*Real.log (f i) := by rfl
-    rw [h₅]
-    calc
-      -f i * Real.log (f i) - f i * (Real.log K)
-            = - (f i) * (Real.log (f i) +  Real.log K) := by ring
-          _ = - (f i) * (Real.log ((f i)* K)) := by rw [Real.log_mul hi hKnez]
-          _ = (f i) * (- Real.log ((f i)* K)) := by ring
-          _ = (f i) * (Real.log ((f i)* K)⁻¹) := by rw [Real.log_inv]
-  rw [h₄]
-
-  -- Step 3: The main step that utilizes the concaviy of the log function
-  have h₆ : ∑ i : {i:α // f i ≠ 0}, (f i) * (Real.log ((f i)* K)⁻¹)
-     ≤  ∑ i : {i:α // f i ≠ 0} , (f i)* (((f i)*(K:ℝ))⁻¹ - 1) := by
-    refine Finset.sum_le_sum ?_
-    simp only [Subtype.forall]
-    intro x hx _
-
-    have hf_nng : 0 ≤ f x := f.NonNeg x  -- f x is larger than or equal 0
-    have hf_pos : 0 < f x  := by exact Ne.lt_of_le (Ne.symm hx) hf_nng
-    have hpos1 : 0< (f x * ↑(Fintype.card α))⁻¹ := by
-      refine inv_pos.mpr ?_
-      exact Real.mul_pos hf_pos (Nat.cast_pos.mpr hpos)
-    have basic_inequality :
-       (Real.log (f x * ↑(Fintype.card α))⁻¹ ) ≤ (((f x * ↑(Fintype.card α))⁻¹ - 1)) := by
-      exact Real.log_le_sub_one_of_pos hpos1
-    exact (mul_le_mul_left hf_pos).mpr basic_inequality
-
-  have h₇ : ∑ i : {i:α // f i ≠ 0} , (f i)* (((f i)*(K:ℝ))⁻¹ - 1)
-     ≤  ∑ i : α  , ((K:ℝ)⁻¹ - f i ) := by
-    have h₇' : ∑ i : α,  (f i)* (((f i)*(K:ℝ))⁻¹ - 1)
-        = ∑ i : {i:α // f i ≠ 0} , (f i)* (((f i)*(K:ℝ))⁻¹ - 1) := by
-      refine sum_eq_sum_nz_term _ (fun i:α => f i) ?_
-      intro x hx
-      simp at hx
-      rw [hx]
-      norm_num
-    rw [← h₇']
-    refine Finset.sum_le_sum ?_
-
-    intro x _
-    by_cases hf_zero : f x = 0
-    · rw [hf_zero]
-      simp
-    · have h₇'': f x * ((f x * ↑K)⁻¹ - 1) = (↑K)⁻¹  - f x := by
-        calc
-          f x * ((f x * ↑K)⁻¹ - 1)
-            =  f x * (f x)⁻¹ * (↑K)⁻¹  - f x := by ring
-          _ = 1*(↑K)⁻¹  - f x := by rw [mul_inv_cancel hf_zero]
-          _ = (↑K)⁻¹  - f x := by ring
-      exact Eq.le h₇''
-
-  have h₈  : ∑ i : α , ((K:ℝ)⁻¹ - f i ) = 0 := by
-    have h₉ : ∑ _a : α , (K:ℝ)⁻¹ = 1 := by
+  have h3 : ∑ x:α , f x = ∑ _x :α , (K:ℝ)⁻¹  := by
+    have h3' : ∑ x, f x = 1:= by exact f.sum_eq_one
+    have h3'': ∑ _x:α, (K:ℝ)⁻¹ = 1 := by
+      rw [sum_congr (fun _x:α => (K:ℝ)⁻¹) (fun x:α => 1*(K:ℝ)⁻¹) ]
+      have :  (∑ x:α, 1)* (K:ℝ)⁻¹ = ∑ x:α, 1*(K:ℝ)⁻¹  := by exact sum_mul univ _ (K:ℝ)⁻¹
+      rw [← this]
       simp
       refine mul_inv_cancel ?_
-      exact Nat.cast_ne_zero.mpr (Nat.pos_iff_ne_zero.mp hpos)
+      exact Nat.cast_ne_zero.mpr (Fintype.card_ne_zero)
+      · intro _
+        ring
+    exact Eq.trans h3' h3''.symm
 
-    rw [Finset.sum_sub_distrib]
-    rw [prob_sum_to_one f, h₉]
-    ring
+  have h4 : ∀ x , f x ≠ 0 → (K:ℝ)⁻¹ ≠ 0 := by exact fun x _ ↦ h1
 
-  exact ge_trans (ge_trans (Eq.le h₈) h₇) h₆
+  -- apply Gibbs inequality
+  have hG :  ∑ x, (f x)* log (f x/ (K:ℝ)⁻¹) ≥ 0 := by exact Gibbs_inequality f.NonNeg h2 h3 h4
 
-  done
+  have h5 : ∑ x, (f x)* log (f x/ (K:ℝ)⁻¹) = ∑ x, (f x) * log (f x) - ∑ x, (f x)*log (K:ℝ)⁻¹ := by
+    rw [sum_congr _ _ ( log_div_eq_log_minus_log h4)]
+    exact Finset.sum_sub_distrib
 
+  have h6 : (∑ x, (f x))*log (K:ℝ)⁻¹ = ∑ x, (f x)*log (K:ℝ)⁻¹  := by
+    exact sum_mul univ _ (log (K:ℝ)⁻¹)
 
+  have h7 : ∑ x, (f x)= 1:= by exact f.sum_eq_one
 
-
-
-
-
-
-
-
--------------------------------------------------
-
-/-
-The rest of the file is junkyark
--/
-
-
-/-
-  Samples low-level functions used in the proof
--/
-
--- #check Subtype.forall
-
--- #check Finset.sum_toFinset_eq_subtype
-
--- #check Finset.sum_sub_distrib
-
--- #check Finset.sum_mul
-
--- #check Finset.sum_toFinset_eq_subtype
-
--- #check Equiv.subtypeEquivRight
-
--- #check Finset.sum_union
-
--- #check Finset.sum_compl_add_sum s f
-/-
-
--- x*log x is defined as 0 when x=0
-example {x : ℝ} (h : x =0) : Real.negMulLog x = 0 := by
-  rw [h]
-  exact Real.negMulLog_zero
-
-example {x:ℝ}  : Real.negMulLog x = -x * Real.log x := rfl
-
-theorem nonneg  (f: α → ℝ)  (h: ∀ i : α  , f i ≥ 0 ):
-  ∑ i, f i ≥ 0 := by
-    calc
-      ∑ i, f i ≥ ∑ i, 0 := by exact Finset.sum_le_sum fun i _ ↦ h i
-      _ = 0 := by exact Fintype.sum_eq_zero (fun _ ↦ 0) (congrFun rfl)
-
-theorem nonpos  (f: α → ℝ)  (h: ∀ i : α  , f i ≤  0 ):
-  ∑ i, f i ≤  0 := by
-    calc
-      ∑ i, f i ≤  ∑ i, 0 := by exact Finset.sum_le_sum fun i _ ↦ h i
-      _ = 0 := by exact Fintype.sum_eq_zero (fun _ ↦ 0) (congrFun rfl)
-
-theorem monotone  (f: α → ℝ) (g: α → ℝ) (h: ∀ i : α  , f i ≤ g i ):
-  ∑ i, f i ≤  ∑ i , g i := by
-   exact Finset.sum_le_sum fun i _ ↦ h i
-
-theorem additive  (f: α → ℝ) (g: α → ℝ) (_: α → ℝ) :
-  ∑ i, (f i + g i) = ∑ i, f i + ∑ i , g i := by exact Finset.sum_add_distrib
-
-example  (f: α → ℝ) (g: α → ℝ)(h: ∀ i : α  , f i = g i ) : ∑ i, f i =  ∑ i , g i := by
- exact Fintype.sum_congr f g h
-
-example (h: n = Fintype.card α) :  n = ∑ i:α , 1  :=
   calc
-   n = Fintype.card α := by rw [h]
-   _ = ∑ i:α , 1 := by exact Fintype.card_eq_sum_ones
+    H f = - ∑ x, (f x)*log (f x) := by exact entropy_def f
+      _ = - ∑ x, (f x)*log (f x) + 0 := by ring
+      _ ≤ - ∑ x, (f x)*log (f x) + ∑ x, (f x)*log (f x/ (K:ℝ)⁻¹) := by rel [hG]
+      _ = - ∑ x, (f x)*log (f x) + (∑ x, (f x)*log (f x) - ∑ x, (f x)*log (K:ℝ)⁻¹) := by rw [h5]
+      _ = - (∑ x, (f x)*log (K:ℝ)⁻¹) := by ring
+      _ = - ((∑ x, (f x))*log (K:ℝ)⁻¹) := by rw [← h6]
+      _ = - (∑ x, (f x)) * log (K:ℝ)⁻¹ := by ring
+      _ = - (1) * log (K:ℝ)⁻¹ := by rw [h7]
+      _ = - (log (K:ℝ)⁻¹) := by simp
+      _ = - (-log (K:ℝ)) := by rw [log_inv (K:ℝ)]
+      _ = log K := by ring
 
 
-example (hn : n = Fintype.card α) (hnz : Fintype.card α ≠ 0) : ∑ i : α , (1/(n:ℝ)) = 1 := by
-  simp
-  rw [hn]
-  exact mul_inv_cancel (Nat.cast_ne_zero.mpr hnz)
-
--/
 
 /-
-
-An unnecessarily complicated proof
-lemma split_summation_domain' (F : α → ℝ)  (p : α → Prop )  [DecidablePred p] :
-    ∑ i:α , F i  =  (∑ i: {i: α // ¬ p i } , F i) + (∑ i: {i: α // p i } , F i)  := by
-
-  have h₀ :  ∀ i:α , (ite (¬ p i) (F i) 0) + (ite (p i) (F i) 0) = F i:= by
-    intro i
-    by_cases h : p i
-    repeat simp [h]
-  have h₁ : (∑ i: {i: α // p i } , F i) = (∑ i , ite (p i) (F i) 0) := by
-    rw [← Finset.sum_toFinset_eq_subtype (fun i:α => (p i)) F]
-    rw [← Fintype.sum_extend_by_zero]
-    refine Fintype.sum_congr _ _ ?_
-    intro x
-    simp only [Set.mem_toFinset]
-    simp
-  have h₂ : (∑ i: {i: α // ¬ p i } , F i) = (∑ i , ite (¬ p i) (F i) 0) := by
-    rw [← Finset.sum_toFinset_eq_subtype (fun i:α => (¬ p i)) F]
-    rw [← Fintype.sum_extend_by_zero]
-    refine Fintype.sum_congr _ _ ?_
-    intro x
-    simp only [Set.mem_toFinset]
-    simp
-  rw [← Fintype.sum_congr (fun i:α=> (ite (¬ p i) (F i) 0) + (ite (p i) (F i) 0)) F h₀]
-  rw [Finset.sum_add_distrib]
-  rw [h₁, h₂]
-
-
-example (m:ℕ ) (h: m≠ 0) : (m:ℝ) ≠ 0 := by exact Nat.cast_ne_zero.mpr h
-
-example (m:ℕ) (h: m> 0) : m ≠ 0 := by exact Nat.pos_iff_ne_zero.mp h
-
-example (a:ℝ) (h: a≠ 0) : a*a⁻¹ = 1:= by exact mul_inv_cancel h
-
-example (β : Type*) [Fintype β] : Fintype.card (α × β) = (Fintype.card α)*(Fintype.card β) := by
-  exact Fintype.card_prod α β
-
-example (m : ℕ ): Fintype.card (Fin m) = m := by exact Fintype.card_fin m
-
-example (a b : ℕ ) : (a*b :ℝ) = (a:ℝ) *(b:ℝ) := by exact rfl
-
-example (a b:ℝ ) : a⁻¹ * b⁻¹ = (a*b)⁻¹ := by exact (mul_inv a b).symm
-
-example (a : ℝ ) (h: a > 0) : a ≥ 0 := by exact le_of_lt h
-
-example (a: ℕ ) (h: a> 0) : (a:ℝ ) > 0 := by exact Nat.cast_pos.mpr h
-
-example (a:ℝ ) (h :a ≥ 0) : a⁻¹ ≥ 0 := by exact inv_nonneg.mpr h
+ Uniform distribution on n outcomes has entropy log n
 -/
+theorem unif_dist_entropy (P : DiscreteDist α) (h: ∃ n:ℕ, n ≠ 0 ∧ ∀ (x:α), P x = 1/n) :
+     H(P) = log n := by
+  sorry
+
+example {n:ℕ} [NeZero n] {P: DiscreteDist (Fin n)} (hP :  P= UniformDist n ):
+  H(P) = log n := by sorry
+
+example (P : DiscreteDist (Fin 2)) : H(P) = h_binary (P 0) := by sorry
 
 
-
-def H_joint (f : DiscreteDist (α × β)) : ℝ :=
-  ∑ i : (α × β), negMulLog (f.dist i)
-
-
-
+theorem Gibb_inequality_eq_hold (P Q : DiscreteDist α)
+  (h: ∑ x, negMulLog (P x) = ∑ x, -(P x) * log (Q x)) : P = Q := by sorry
 
 end entropy
+
+end -- section
