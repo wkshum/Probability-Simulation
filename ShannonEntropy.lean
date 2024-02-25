@@ -35,6 +35,8 @@ variable {β : Type*} [DecidableEq β] [Fintype β] [Nonempty β]
 def H (f : DiscreteDist α) : ℝ :=
   ∑ i : α , negMulLog (f i)
 
+def H2 (P : JointDist2 (f : DiscreteDist α) (g: DiscreteDist β)) : ℝ :=
+  ∑ i : α×β  , negMulLog (P.dist i)
 
 -- Binary entropy function
 def h_binary (p:ℝ) : ℝ := negMulLog p + negMulLog (1-p)
@@ -397,6 +399,11 @@ example (P : DiscreteDist (Fin 2)) : H(P) = h_binary (P 0) := by sorry
 
 theorem Gibb_inequality_eq_hold (P Q : DiscreteDist α)
   (h: ∑ x, negMulLog (P x) = ∑ x, -(P x) * log (Q x)) : P = Q := by sorry
+
+example (P_X : DiscreteDist α ) (P_Y : DiscreteDist β) (P_XY : JointDist2 P_X P_Y ) :
+  H2 P_XY ≤ H P_X + H P_Y:=  by sorry
+
+
 
 end entropy
 
