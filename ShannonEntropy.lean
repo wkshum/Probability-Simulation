@@ -112,7 +112,26 @@ theorem entropy_ge_zero (f : DiscreteDist α) : (H f) ≥ 0 := by
 
 
 
-
+theorem negMulLog_eq_zero (hge0: x≥0) : negMulLog (x) = 0 ↔ x = 0 ∨ x = 1 := by
+  constructor
+  intro h
+  simp [negMulLog] at h
+  rcases h with h1 | (h2 | h3)
+  left
+  exact h1
+  right
+  exact h2
+  have : ¬ x ≥ 0 := by linarith
+  contradiction
+  intro h
+  rcases h with h1 | h2
+  simp [negMulLog]
+  left
+  exact h1
+  simp [negMulLog]
+  right
+  left
+  exact h2
 
 
 /- If entropy is zero, then there exists an outcome x with probability 1
