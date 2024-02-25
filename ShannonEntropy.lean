@@ -35,6 +35,16 @@ variable {β : Type*} [DecidableEq β] [Fintype β] [Nonempty β]
 def H (f : DiscreteDist α) : ℝ :=
   ∑ i : α , negMulLog (f i)
 
+def H2 (P : JointDist2 (f : DiscreteDist α) (g: DiscreteDist β)) : ℝ :=
+  ∑ i : α×β  , negMulLog (P.dist i)
+
+def KullbackLeibler (P Q : DiscreteDist α) :ℝ :=
+  ∑ i : α , (P i) * log ((P i)/(Q i))
+
+def MutualInformation (P_XY: JointDist2 (P_X : DiscreteDist α) (P_Y : DiscreteDist β )) : ℝ :=
+  ∑ k:α × β , (P_XY.dist  k) * log (P_XY.dist k)/((P_X.dist k.1)*(P_Y.dist k.2))
+
+
 
 -- Binary entropy function
 def h_binary (p:ℝ) : ℝ := negMulLog p + negMulLog (1-p)
@@ -239,16 +249,15 @@ theorem Gibbs_inequality {P Q : α→ℝ} (hP: ∀ i, P i ≥ 0) (hQ: ∀ i, Q i
 
    ∑ i, (P i)* log (P i/Q i) ≥ 0 := by
 
-  have : ∀ i , (P i)*log (P i/Q i) = (P i)*log (Q i/P i)*(-1) := by
+  have h1: ∀ i , (P i)*log (P i/Q i) = (P i)*log (Q i/P i)*(-1) := by
     intro i
-    have h₁' : log (Q i/P i)⁻¹ = - log (Q i/P i) := by exact log_inv (Q i/P i)
-    have h₁'':  (P i / Q i) = (Q i/P i)⁻¹ := by field_simp
+    have :  (P i / Q i) = (Q i/P i)⁻¹ := by field_simp
     calc
-      (P i)*log (P i/Q i) = (P i)*log (Q i/P i)⁻¹ := by rw [h₁'']
-                        _ = (P i)* (- log (Q i/P i)) := by rw [h₁']
+      (P i)*log (P i/Q i) = (P i)*log (Q i/P i)⁻¹ := by rw [this]
+                        _ = (P i)* (- log (Q i/P i)) := by rw [log_inv (Q i/P i)]
                         _ =  (P i)*log (Q i/P i)*(-1) := by ring
+  rw [sum_congr (fun i=>(P i)*log (P i/Q i)) (fun i=>(P i)*log (Q i/P i)*(-1)) h1]
 
-  rw [sum_congr (fun i=>(P i)*log (P i/Q i)) (fun i=>(P i)*log (Q i/P i)*(-1)) this]
   have : (∑ i, (P i)*log ((Q i/P i)))*(-1) = ∑ i, ((P i)*log ((Q i/P i))*(-1)) := by
     exact sum_mul univ _ (-1)
   rw [← this]
@@ -321,6 +330,8 @@ theorem Gibbs_inequality {P Q : α→ℝ} (hP: ∀ i, P i ≥ 0) (hQ: ∀ i, Q i
   exact h₄
 
 
+
+
 theorem log_sum_inequality (a b : α→ℝ) (ha: ∀ i, a i ≥ 0) (hb: ∀ i, b i ≥ 0)
   (hA:  ∑ i, a i > 0) (hB: ∑ i, b i>0) (h: ∀ i, a i ≠ 0 → b i ≠ 0) :
 
@@ -355,49 +366,46 @@ theorem entropy_le_log_suppsize  (f : DiscreteDist α):  (H f) ≤ Real.log (Fin
     apply Nat.cast_ne_zero.mpr
     exact ne_of_gt hKpos       -- suffices to prove K > 0
 
-  have h2 : ∀ _x : α, (K:ℝ)⁻¹ ≥ 0 := by
-    intro _
-    exact LT.lt.le (inv_pos.mpr (Nat.cast_pos.mpr hKpos))
-
-  have h3 : ∑ x:α , f x = ∑ _x :α , (K:ℝ)⁻¹  := by
-    have h3' : ∑ x, f x = 1:= by exact f.sum_eq_one
-    have h3'': ∑ _x:α, (K:ℝ)⁻¹ = 1 := by
-      rw [sum_congr (fun _x:α => (K:ℝ)⁻¹) (fun x:α => 1*(K:ℝ)⁻¹) ]
-      have :  (∑ x:α, 1)* (K:ℝ)⁻¹ = ∑ x:α, 1*(K:ℝ)⁻¹  := by exact sum_mul univ _ (K:ℝ)⁻¹
-      rw [← this]
-      simp
-      refine mul_inv_cancel ?_
-      exact Nat.cast_ne_zero.mpr (Fintype.card_ne_zero)
-      · intro _
-        ring
-    exact Eq.trans h3' h3''.symm
-
-  have h4 : ∀ x , f x ≠ 0 → (K:ℝ)⁻¹ ≠ 0 := by exact fun x _ ↦ h1
+  have h2 : ∀ x , f x ≠ 0 → (K:ℝ)⁻¹ ≠ 0 := by exact fun x _ ↦ h1
 
   -- apply Gibbs inequality
-  have hG :  ∑ x, (f x)* log (f x/ (K:ℝ)⁻¹) ≥ 0 := by exact Gibbs_inequality f.NonNeg h2 h3 h4
-
-  have h5 : ∑ x, (f x)* log (f x/ (K:ℝ)⁻¹) = ∑ x, (f x) * log (f x) - ∑ x, (f x)*log (K:ℝ)⁻¹ := by
-    rw [sum_congr _ _ ( log_div_eq_log_minus_log h4)]
-    exact Finset.sum_sub_distrib
-
-  have h6 : (∑ x, (f x))*log (K:ℝ)⁻¹ = ∑ x, (f x)*log (K:ℝ)⁻¹  := by
-    exact sum_mul univ _ (log (K:ℝ)⁻¹)
-
-  have h7 : ∑ x, (f x)= 1:= by exact f.sum_eq_one
+  have hG :  ∑ x, (f x)* log (f x/ (K:ℝ)⁻¹) ≥ 0 := by
+    convert Gibbs_inequality f.NonNeg _ _ h2
+    · -- the first missing condition
+      intro _
+      exact LT.lt.le (inv_pos.mpr (Nat.cast_pos.mpr hKpos))
+    · -- the second missing condition
+      have h3' : ∑ x, f x = 1:= by exact f.sum_eq_one
+      have h3'': ∑ _x:α, (K:ℝ)⁻¹ = 1 := by
+        rw [sum_congr (fun _x:α => (K:ℝ)⁻¹) (fun x:α => 1*(K:ℝ)⁻¹) ]
+        have :  (∑ x:α, 1)* (K:ℝ)⁻¹ = ∑ x:α, 1*(K:ℝ)⁻¹  := by exact sum_mul univ _ (K:ℝ)⁻¹
+        rw [← this]
+        simp
+        refine mul_inv_cancel ?_
+        exact Nat.cast_ne_zero.mpr (Fintype.card_ne_zero)
+        · intro _
+          ring
+      exact Eq.trans h3' h3''.symm
 
   calc
     H f = - ∑ x, (f x)*log (f x) := by exact entropy_def f
       _ = - ∑ x, (f x)*log (f x) + 0 := by ring
       _ ≤ - ∑ x, (f x)*log (f x) + ∑ x, (f x)*log (f x/ (K:ℝ)⁻¹) := by rel [hG]
-      _ = - ∑ x, (f x)*log (f x) + (∑ x, (f x)*log (f x) - ∑ x, (f x)*log (K:ℝ)⁻¹) := by rw [h5]
+      _ = - ∑ x, (f x)*log (f x) + (∑ x, (f x)*log (f x) - ∑ x, (f x)*log (K:ℝ)⁻¹) := by
+            have : ∑ x, (f x)* log (f x/ (K:ℝ)⁻¹) = ∑ x, (f x) * log (f x) - ∑ x, (f x)*log (K:ℝ)⁻¹ :=   by
+              rw [sum_congr _ _ ( log_div_eq_log_minus_log h2)]
+              exact Finset.sum_sub_distrib
+            rw [this]
       _ = - (∑ x, (f x)*log (K:ℝ)⁻¹) := by ring
-      _ = - ((∑ x, (f x))*log (K:ℝ)⁻¹) := by rw [← h6]
+      _ = - ((∑ x, (f x))*log (K:ℝ)⁻¹) := by rw [← sum_mul univ _ (log (K:ℝ)⁻¹) ]
       _ = - (∑ x, (f x)) * log (K:ℝ)⁻¹ := by ring
-      _ = - (1) * log (K:ℝ)⁻¹ := by rw [h7]
+      _ = - (1) * log (K:ℝ)⁻¹ := by
+              have : ∑ x, (f x)= 1 := by exact f.sum_eq_one
+              rw [this]
       _ = - (log (K:ℝ)⁻¹) := by simp
       _ = - (-log (K:ℝ)) := by rw [log_inv (K:ℝ)]
       _ = log K := by ring
+
 
 
 
@@ -416,6 +424,14 @@ example (P : DiscreteDist (Fin 2)) : H(P) = h_binary (P 0) := by sorry
 
 theorem Gibb_inequality_eq_hold (P Q : DiscreteDist α)
   (h: ∑ x, negMulLog (P x) = ∑ x, -(P x) * log (Q x)) : P = Q := by sorry
+
+example (P_X : DiscreteDist α ) (P_Y : DiscreteDist β) (P_XY : JointDist2 P_X P_Y ) :
+  H2 P_XY ≤ H P_X + H P_Y:=  by sorry
+
+example (P_X : DiscreteDist α ) (P_Y : DiscreteDist β) (P_XY : JointDist2 P_X P_Y ) :
+  H2 P_XY = H P_X + H P_Y - (MutualInformation P_XY):=  by sorry
+
+
 
 end entropy
 
