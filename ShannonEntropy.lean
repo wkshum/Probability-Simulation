@@ -103,9 +103,101 @@ theorem entropy_ge_zero (f : DiscreteDist α) : (H f) ≥ 0 := by
 
 
 
--- If entropy is zero, then there exists an outcome x with probability 1
+
+
+/- If entropy is zero, then there exists an outcome x with probability 1
+ Challenges: converting between i : α and i ∈ α
+ Sketch: 1) ∀ i : α , negMulLog (P i) ≥ 0
+         2) ∀ i : α , negMulLog (P i) = 0
+         3) ∀ i : α , P i = 0 ∨ P i = 1
+         4) ∃! x, P x = 1
+-/
 theorem eq_entropy_eq_zero (P: DiscreteDist α) :
-     H P = 0 → ∃! x:α , P x = 1 ∧ ∀ y:α , y≠ x → P y = 0 := by sorry
+    H P = 0 → ∃! x:α , P x = 1 ∧ ∀ y:α , y≠ x → P y = 0 := by
+    intro hp0
+    simp [H] at hp0
+    have h0 : ∀ i ∈ univ, 0 ≤ P i := by
+      rintro i hi
+      exact P.NonNeg i
+    have h1 :  ∀ i : α , negMulLog (P i) ≥ 0 := by
+      intro j
+      have Pjge0 : P j ≥ 0 := P.NonNeg j
+      have Pjle1 : P j ≤ 1 := prob_le_one P j
+      have logPjle0 : log (P j) ≤ 0 := Real.log_nonpos Pjge0 Pjle1
+      simp [negMulLog]
+      rw [mul_nonpos_iff]
+      left
+      exact ⟨Pjge0, logPjle0⟩
+    have h1' : ∀ i ∈ univ, 0 ≤ negMulLog (P i) := by
+      rintro i hi
+      exact h1 i
+    have h2 : ∀ i ∈ univ, negMulLog (P i) = 0 := by
+      exact (Finset.sum_eq_zero_iff_of_nonneg h1').1 hp0
+    have h3 : ∀ i ∈ univ, P i = 0 ∨ P i = 1 := by
+      rintro j hj
+      rw [← negMulLog_eq_zero]
+      apply h2 j
+      exact hj
+      exact P.NonNeg j
+    have h4 : ∃! x, P x = 1 := by
+      simp [ExistsUnique]
+      by_contra hx
+      push_neg at hx
+      have : ∃ x, P x ≠ 0 := by
+        by_contra hh
+        push_neg at hh
+        have sum_eq_0 : ∑ i : α, P i = 0 := by
+          simp [hh]
+        have not_sum_eq_0 : ¬(∑ i : α, P i = 0 ) := by
+          push_neg
+          have : ∑ i : α, P i = 1 := P.sum_eq_one
+          linarith
+        contradiction
+      rcases this with ⟨x, hnz⟩
+      have hP1' : P x = 0 ∨ P x = 1 := by
+        apply h3 x
+        simp
+      have hP1 : P x = 1 := by
+        rcases hP1' with hh | hh
+        contradiction
+        exact hh
+      have hy : ∃ y, P y = 1 ∧ y ≠ x := by
+        apply hx x hP1
+      rcases hy with ⟨y, ⟨hPy, ynex⟩⟩
+      have xuniv : x ∈ univ := by
+        simp
+      have yuniv : y ∈ univ := by
+        simp
+      have hsumxy : 2 ≤ ∑ i, P i := by
+        have sumPxy : P y + P x = 2 := by
+          rw [hP1, hPy]
+          ring
+        rw [← sumPxy]
+        apply Finset.add_le_sum h0 yuniv xuniv ynex
+      have Psum : ∑ i, P i = 1 := P.sum_eq_one
+      linarith
+    simp only [ExistsUnique] at *
+    rcases h4 with ⟨x, hx⟩
+    use x
+    constructor
+    · constructor
+      exact hx.1
+      intro y
+      contrapose
+      push_neg
+      intro pne0
+      have : P y = 1 := by
+        have : P y = 0 ∨ P y = 1 := by
+          apply h3 y
+          simp
+        rcases this with _|h
+        contradiction
+        exact h
+      exact hx.2 y this
+    rintro y hy
+    exact hx.2 y hy.1
+
+
 
 
 
