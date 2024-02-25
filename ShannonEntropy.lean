@@ -38,6 +38,14 @@ def H (f : DiscreteDist α) : ℝ :=
 def H2 (P : JointDist2 (f : DiscreteDist α) (g: DiscreteDist β)) : ℝ :=
   ∑ i : α×β  , negMulLog (P.dist i)
 
+def KullbackLeibler (P Q : DiscreteDist α) :ℝ :=
+  ∑ i : α , (P i) * log ((P i)/(Q i))
+
+def MutualInformation (P_XY: JointDist2 (P_X : DiscreteDist α) (P_Y : DiscreteDist β )) : ℝ :=
+  ∑ k:α × β , (P_XY.dist  k) * log (P_XY.dist k)/((P_X.dist k.1)*(P_Y.dist k.2))
+
+
+
 -- Binary entropy function
 def h_binary (p:ℝ) : ℝ := negMulLog p + negMulLog (1-p)
 
