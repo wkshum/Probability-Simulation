@@ -409,6 +409,9 @@ theorem Gibb_inequality_eq_hold (P Q : DiscreteDist α)
 example (P_X : DiscreteDist α ) (P_Y : DiscreteDist β) (P_XY : JointDist2 P_X P_Y ) :
   H2 P_XY ≤ H P_X + H P_Y:=  by sorry
 
+example (P_X : DiscreteDist α ) (P_Y : DiscreteDist β) (P_XY : JointDist2 P_X P_Y ) :
+  H2 P_XY = H P_X + H P_Y - (MutualInformation P_XY):=  by sorry
+
 
 
 end entropy
