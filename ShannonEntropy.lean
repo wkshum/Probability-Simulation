@@ -332,12 +332,108 @@ theorem Gibbs_inequality {P Q : α→ℝ} (hP: ∀ i, P i ≥ 0) (hQ: ∀ i, Q i
 
 
 
+
+
 theorem log_sum_inequality (a b : α→ℝ) (ha: ∀ i, a i ≥ 0) (hb: ∀ i, b i ≥ 0)
   (hA:  ∑ i, a i > 0) (hB: ∑ i, b i>0) (h: ∀ i, a i ≠ 0 → b i ≠ 0) :
 
      ∑ i, (a i)* log (a i/b i) ≥ (∑ i, a i) * log ((∑ i, a i)/(∑ i, b i)) := by
+  let A := ∑ i, a i
+  let B := ∑ i, b i
+  let P : α → ℝ := λ i ↦ (a i / A)
+  let Q : α → ℝ := λ i ↦ (b i / B)
+  have hAA : A > 0 := by simpa
+  have hBB : B > 0 := by simpa
+  have hsumP : ∑ i : α, P i = 1 := by
+    simp
+    rw [← Finset.sum_div, div_self]
+    linarith
+  have hsumQ : ∑ i : α, Q i = 1 := by
+    simp
+    rw [← Finset.sum_div, div_self]
+    linarith
+  have hPQ : ∑ i : α, P i = ∑ i : α, Q i := by rw [hsumP, hsumQ]
+  calc
+    ∑ i, (a i)* log (a i/b i)
+      = A * (∑ i, (P i)* log (P i * A /(Q i * B))) := by
+        simp [P,Q]
+        field_simp
+        rw [mul_comm, Finset.sum_mul]
+        field_simp
+    _ = A * (∑ i, (P i)* log ((P i / Q i)*(A / B))) := by
+        congr
+        ext x
+        rw [div_mul_div_comm]
+    _ = A * (∑ i, (P i)* log (P i /Q i) + (∑ i, (P i)* log (A /B))) := by
+        congr
+        rw [← Finset.sum_add_distrib]
+        congr
+        ext x
+        rw [← mul_add]
+        by_cases hx : P x = 0
+        · rw [hx]
+          simp
+        have hq : P x / Q x ≠ 0 := by
+          have hax : a x ≠ 0 := by
+            contrapose! hx
+            simp
+            left
+            exact hx
+          have hbx : b x ≠ 0 := by exact h x hax
+          have hqx : Q x ≠ 0 := by
+            contrapose! hbx
+            simp at hbx
+            rcases hbx with h1|h1
+            exact h1
+            linarith
+          contrapose! hqx
+          field_simp at hqx
+        rw [← Real.log_mul]
+        exact hq
+        field_simp
+        linarith
+    _ = A * (∑ i, (P i)* log (P i /Q i)) + A * log (A / B) := by
+        rw [mul_add]
+        congr
+        by_cases hP : log (A / B) = 0
+        · rw [hP]
+          simp
+        rw [← div_left_inj' hP, div_self, Finset.sum_div, ← hsumP]
+        congr
+        ext x
+        rw [mul_div_assoc, div_self]
+        simp
+        exact hP
+        exact hP
+    _ ≥ A * log (A / B) := by
+        nth_rewrite 2 [← zero_add (A * log (A / B))]
+        rw [ge_iff_le, add_le_add_iff_right]
+        apply mul_nonneg
+        exact le_of_lt hAA
+        rw [← ge_iff_le]
+        apply Gibbs_inequality
+        simp
+        intro i
+        apply div_nonneg (ha i) (le_of_lt hA)
+        intro i
+        simp
+        apply div_nonneg (hb i) (le_of_lt hB)
+        exact hPQ
+        intro i hPi
+        have : a i ≠ 0 := by
+          contrapose! hPi
+          simp
+          left
+          exact hPi
+        have : b i ≠ 0 := by exact h i this
+        contrapose! this
+        simp at this
+        rcases this with h'|h'
+        exact h'
+        linarith
+    _ = (∑ i, a i) * log ((∑ i, a i)/(∑ i, b i)) := by simp
 
-  sorry
+
 
 lemma log_div_eq_log_minus_log {a b : α → ℝ} (h : ∀ i:α , a i ≠ 0 → b i ≠ 0) :
      ∀ i:α , (a i) * log (a i / b i) = (a i)*log (a i) - (a i)* log ( b i) := by
