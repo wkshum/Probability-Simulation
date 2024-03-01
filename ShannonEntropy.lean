@@ -6,7 +6,6 @@ import Mathlib.Analysis.SpecialFunctions.Log.Basic
 import Mathlib.Analysis.SpecialFunctions.Log.NegMulLog
 
 import MyProject.DiscreteProbability
-
 noncomputable section
 
 
@@ -20,7 +19,7 @@ namespace entropy
 -/
 variable {α : Type*} [DecidableEq α] [Fintype α] [Nonempty α ]
 variable {β : Type*} [DecidableEq β] [Fintype β] [Nonempty β]
-
+variable {γ : Type*} [DecidableEq γ] [Fintype γ] [Nonempty γ]
 
 
 /-
@@ -37,6 +36,7 @@ def H (f : DiscreteDist α) : ℝ :=
 
 def H2 (P : JointDist2 (f : DiscreteDist α) (g: DiscreteDist β)) : ℝ :=
   ∑ i : α×β  , negMulLog (P.dist i)
+
 
 def KullbackLeibler (P Q : DiscreteDist α) :ℝ :=
   ∑ i : α , (P i) * log ((P i)/(Q i))
@@ -332,8 +332,6 @@ theorem Gibbs_inequality {P Q : α→ℝ} (hP: ∀ i, P i ≥ 0) (hQ: ∀ i, Q i
 
 
 
-
-
 theorem log_sum_inequality (a b : α→ℝ) (ha: ∀ i, a i ≥ 0) (hb: ∀ i, b i ≥ 0)
   (hA:  ∑ i, a i > 0) (hB: ∑ i, b i>0) (h: ∀ i, a i ≠ 0 → b i ≠ 0) :
 
@@ -435,6 +433,11 @@ theorem log_sum_inequality (a b : α→ℝ) (ha: ∀ i, a i ≥ 0) (hb: ∀ i, b
 
 
 
+
+
+
+
+
 lemma log_div_eq_log_minus_log {a b : α → ℝ} (h : ∀ i:α , a i ≠ 0 → b i ≠ 0) :
      ∀ i:α , (a i) * log (a i / b i) = (a i)*log (a i) - (a i)* log ( b i) := by
   intro i
@@ -508,18 +511,55 @@ theorem entropy_le_log_suppsize  (f : DiscreteDist α):  (H f) ≤ Real.log (Fin
 /-
  Uniform distribution on n outcomes has entropy log n
 -/
-theorem unif_dist_entropy (P : DiscreteDist α) (h: ∃ n:ℕ, n ≠ 0 ∧ ∀ (x:α), P x = 1/n) :
+theorem unif_dist_entropy (P : DiscreteDist α) (n:ℕ) [NeZero n] (h: ∀ (x:α), P x = 1/n) :
      H(P) = log n := by
-  sorry
+  simp [H,negMulLog]
+  have h1 : -∑ x : α, P x * log (P x) = -∑ x : α, P x * log (1/n) := by
+    congr
+    ext x
+    simp [h]
+  rw [h1]
+  rw [← Finset.sum_mul]
+  have : ∑ i : α, P i = 1 := P.sum_eq_one
+  simp [this]
 
 example {n:ℕ} [NeZero n] {P: DiscreteDist (Fin n)} (hP :  P= UniformDist n ):
-  H(P) = log n := by sorry
+  H(P) = log n := by
+  simp [UniformDist] at hP
+  have h: ∀ (x: Fin n), P x = 1/n := by
+    intro x
+    have : P x = P.dist x := rfl
+    rw [this]
+    simp [hP]
+  apply unif_dist_entropy
+  exact h
 
-example (P : DiscreteDist (Fin 2)) : H(P) = h_binary (P 0) := by sorry
+example (P : DiscreteDist (Fin 2)) : H(P) = h_binary (P 0) := by
+  simp [H,h_binary]
+  have h : 1 - P 0 = P 1 := by
+    rw [← P.sum_eq_one]
+    simp
+    calc
+      P.dist 0 + P.dist 1 - P 0 = P.dist 0 + P.dist 1 - P.dist 0 := by rfl
+                              _ = P.dist 1 := by ring
+                              _ = P 1 := by rfl
+  rw [h]
 
+
+
+--For the next theorem we need the equality case of Jensen's inequality
+--We could use: StrictConvexOn.eq_of_le_map_sum
+--Need to prove: StrictConvexOn ℝ ℝ log
+
+
+--Alternatively we could use the fact that
+--log x ≤ x - 1 with equality iff x = 1
+--Refer to the proof of Gibb's inequality
 
 theorem Gibb_inequality_eq_hold (P Q : DiscreteDist α)
-  (h: ∑ x, negMulLog (P x) = ∑ x, -(P x) * log (Q x)) : P = Q := by sorry
+  (h: ∑ x, negMulLog (P x) = ∑ x, -(P x) * log (Q x)) : P = Q := by
+
+  sorry
 
 example (P_X : DiscreteDist α ) (P_Y : DiscreteDist β) (P_XY : JointDist2 P_X P_Y ) :
   H2 P_XY ≤ H P_X + H P_Y:=  by sorry
@@ -527,6 +567,12 @@ example (P_X : DiscreteDist α ) (P_Y : DiscreteDist β) (P_XY : JointDist2 P_X 
 example (P_X : DiscreteDist α ) (P_Y : DiscreteDist β) (P_XY : JointDist2 P_X P_Y ) :
   H2 P_XY = H P_X + H P_Y - (MutualInformation P_XY):=  by sorry
 
+
+example (P_X : DiscreteDist α ) (P_Y : DiscreteDist β) (P_XY : DiscreteDist γ)
+(h: IsJointDist' P_X P_Y P_XY) :
+  H P_XY ≤ H P_X + H P_Y:=  by
+
+  sorry
 
 
 end entropy
