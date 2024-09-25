@@ -1,4 +1,15 @@
 # 124-card trick
+'''
+Sample run of this program:
+Choose 5 numbers fom 0 to 123, without repetition
+The drawn numbers are  [11, 90, 95, 101, 103]
+Select 11 as the secret number
+Order the remaining four numbers as [103, 95, 101, 90]
+
+The decoder obtains 11 from the four numbers and recover
+[11, 90, 95, 101, 103]
+'''
+
 
 from random import sample
 
