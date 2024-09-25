@@ -1,6 +1,15 @@
 # Implementation of source coding for binary input strings
 #
-
+'''
+Sample program output:
+    
+Block length = 20
+Total number of codewords =  1352
+Encode 20 bits to 11.0 bits.
+Compression rate =  0.55
+Source data bits : [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0]
+Decoded bits     : [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0] 
+'''
 
 from math import comb
 from numpy import random, log2, ceil
